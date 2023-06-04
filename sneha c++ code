@@ -1,0 +1,84 @@
+#include <ros/ros.h>
+#include <geometry_msgs/Twist.h>
+#include <turtlesim/Pose.h>
+
+class TurtleSimCatchAndCatch {
+public:
+  TurtleSimCatchAndCatch() {
+    // Initialize ROS node
+    ros::NodeHandle nh;
+
+    // Create a publisher to control the chasing turtle's movement
+    cmd_vel_pub = nh.advertise<geometry_msgs::Twist>("/turtle1/cmd_vel", 10);
+
+    // Create a subscriber to get the position of the target turtle
+    pose_sub = nh.subscribe("/turtle2/pose", 10, &TurtleSimCatchAndCatch::targetPoseCallback, this);
+
+    // Set the target turtle's position initially to (0, 0)
+    target_x = 0.0;
+    target_y = 0.0;
+
+    // Set the desired distance to maintain from the target turtle
+    desired_distance = 1.0;
+  }
+
+  void targetPoseCallback(const turtlesim::Pose::ConstPtr& msg) {
+    // Update the target turtle's position
+    target_x = msg->x;
+    target_y = msg->y;
+  }
+
+  void chaseTarget() {
+    // Create a Twist message to control the chasing turtle's movement
+    geometry_msgs::Twist cmd_vel_msg;
+
+    // Set the linear and angular velocity based on the target turtle's position
+    double distance = calculateDistance();
+    cmd_vel_msg.linear.x = 1.5 * distance;  // Adjust the linear velocity gain as needed
+    cmd_vel_msg.angular.z = 4.0 * (calculateAngle() - 3.14/2);  // Adjust the angular velocity gain as needed
+
+    // Publish the Twist message
+    cmd_vel_pub.publish(cmd_vel_msg);
+  }
+
+  double calculateDistance() {
+    // Calculate the distance between the chasing turtle and the target turtle
+    return sqrt(pow(target_x - 5.5, 2) + pow(target_y - 5.5, 2));
+  }
+
+  double calculateAngle() {
+    // Calculate the angle between the chasing turtle's heading and the line connecting it to the target turtle
+    return atan2(target_y - 5.5, target_x - 5.5);
+  }
+
+  void run() {
+    // Run the chase loop
+    ros::Rate rate(10);  // 10 Hz
+
+    while (ros::ok()) {
+      chaseTarget();
+      rate.sleep();
+      ros::spinOnce();
+    }
+  }
+
+private:
+  ros::Publisher cmd_vel_pub;
+  ros::Subscriber pose_sub;
+
+  double target_x;
+  double target_y;
+
+  double desired_distance;
+};
+
+int main(int argc, char** argv) {
+  // Initialize ROS node
+  ros::init(argc, argv, "turtle_sim_catch_and_catch");
+
+  TurtleSimCatchAndCatch turtle_sim;
+
+  turtle_sim.run();
+
+  return 0;
+}
