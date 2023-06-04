@@ -1,0 +1,63 @@
+#!/usr/bin/env python
+
+import rospy
+from geometry_msgs.msg import Twist
+from turtlesim.msg import Pose
+
+class TurtleSimCatchAndCatch:
+    def __init__(self):
+        # Initialize ROS node
+        rospy.init_node('turtle_sim_catch_and_catch')
+
+        # Create a publisher to control the chasing turtle's movement
+        self.cmd_vel_pub = rospy.Publisher('/turtle1/cmd_vel', Twist, queue_size=10)
+
+        # Create a subscriber to get the position of the target turtle
+        self.pose_sub = rospy.Subscriber('/turtle2/pose', Pose, self.target_pose_callback)
+
+        # Set the target turtle's position initially to (0, 0)
+        self.target_x = 0.0
+        self.target_y = 0.0
+
+        # Set the desired distance to maintain from the target turtle
+        self.desired_distance = 1.0
+
+    def target_pose_callback(self, data):
+        # Update the target turtle's position
+        self.target_x = data.x
+        self.target_y = data.y
+
+    def chase_target(self):
+        # Create a Twist message to control the chasing turtle's movement
+        cmd_vel_msg = Twist()
+
+        # Set the linear and angular velocity based on the target turtle's position
+        distance = self.calculate_distance()
+        cmd_vel_msg.linear.x = 1.5 * distance  # Adjust the linear velocity gain as needed
+        cmd_vel_msg.angular.z = 4.0 * (self.calculate_angle() - 3.14/2)  # Adjust the angular velocity gain as needed
+
+        # Publish the Twist message
+        self.cmd_vel_pub.publish(cmd_vel_msg)
+
+    def calculate_distance(self):
+        # Calculate the distance between the chasing turtle and the target turtle
+        return ((self.target_x - 5.5) ** 2 + (self.target_y - 5.5) ** 2) ** 0.5
+
+    def calculate_angle(self):
+        # Calculate the angle between the chasing turtle's heading and the line connecting it to the target turtle
+        return atan2(self.target_y - 5.5, self.target_x - 5.5)
+
+    def run(self):
+        # Run the chase loop
+        rate = rospy.Rate(10)  # 10 Hz
+
+        while not rospy.is_shutdown():
+            self.chase_target()
+            rate.sleep()
+
+if __name__ == '__main__':
+    try:
+        turtle_sim = TurtleSimCatchAndCatch()
+        turtle_sim.run()
+    except rospy.ROSInterruptException:
+        pass
